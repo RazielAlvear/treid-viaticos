@@ -502,6 +502,8 @@
 // CONFIG — URL de tu Google Apps Script
 // ════════════════════════════════════════════════
 var API_URL = 'https://script.google.com/macros/s/AKfycbzonKNyFB64oD8pms8N6l7ISOnTPWVjuNzziqnJLsgUIS-tFWIjP5xdB15W7Wrukcbbvg/exec';
+var CLOUDINARY_CLOUD = 'dvr2nq07j';
+var CLOUDINARY_PRESET = 'treid_upload';
 
 // ════════════════════════════════════════════════
 // CONSTANTES
@@ -602,8 +604,7 @@ function cargarDatos() {
   });
 }
 
-function setSyncStatus(estado, texto) {
-  var dot = document.getElementById('sync-dot');
+function setSynment.getElementById('sync-dot');
   var txt = document.getElementById('sync-txt');
   var pill = document.getElementById('conn-pill');
   var ptxt = document.getElementById('conn-txt');
@@ -873,7 +874,7 @@ function renderArchivos(){
     var ee=EMP_EMPRESA[it.reg.empleado],ecls=ee==='Alquipop'?'alq':'cmp';
     var preview='',thisLbI=lbI;
     if(tipo==='img'){
-      var imgSrc=a.viewUrl||a.dataUrl||'';
+      var imgSrc=a.dataUrl||a.viewUrl||'';
       preview='<img src="'+imgSrc+'" alt="'+a.nombre+'" onclick="lbAbrir('+thisLbI+')" onerror="this.style.display=\'none\'">';
       LB_LIST.push({src:imgSrc,nombre:a.nombre});
       lbI++;
@@ -1186,25 +1187,73 @@ function guardar(){
 
   function subirSiguiente(idx){
     if(idx>=totalArchivos){
-      // Todos subidos, guardar registro
       guardarRegistroFinal(emp,fecha,comp,c,p,e,o,archivosSubidos);
       return;
     }
     var a=ARCHIVOS_TEMP[idx];
     document.getElementById('upload-progress').classList.add('show');
     document.getElementById('upload-progress').textContent='⏳ Subiendo archivo '+(idx+1)+' de '+totalArchivos+': '+a.nombre;
-    apiPost({action:'subirArchivo', nombre:a.nombre, base64:a.base64, mimeType:a.mimeType}, function(err, data){
-      if(err||!data.ok){
-        // Si falla la subida del archivo, guardar sin él
-        archivosSubidos.push({nombre:a.nombre, error:true});
-      } else {
-        archivosSubidos.push({nombre:data.nombre, fileId:data.fileId, viewUrl:data.viewUrl});
-      }
+    // Subir a Cloudinary
+    subirCloudinary(a, idx, totalArchivos, function(url){
+      archivosSubidos.push({nombre:a.nombre, viewUrl:url, dataUrl:a.dataUrl, tipo:a.tipo});
       subirSiguiente(idx+1);
     });
   }
 
   subirSiguiente(0);
+}
+
+// Subir archivo via Google Forms (evita CORS)
+var FORM_ID =  + FORM_ID + ;
+var ENTRY_ID =  + ENTRY_ID + ;
+
+function subirViaForms(archivo, callback) {
+  var formUrl = 'https://docs.google.com/forms/d/e/' + FORM_ID + '/formResponse';
+  var formData = new FormData();
+  // Convertir base64 a Blob
+  var byteStr = atob(archivo.base64);
+  var arr = new Uint8Array(byteStr.length);
+  for (var i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+  var blob = new Blob([arr], {type: archivo.mimeType});
+  formData.append('entry.' + ENTRY_ID, blob, archivo.nombre);
+  fetch(formUrl, {method: 'POST', body: formData, mode: 'no-cors'})
+    .then(function() {
+      // Google Forms no devuelve el URL del archivo, usamos dataUrl local para preview
+      callback(archivo.dataUrl);
+    })
+    .catch(function() {
+      callback(archivo.dataUrl);
+    });
+}
+
+function subirCloudinary(archivo, idx, total, callback) {
+  document.getElementById('upload-progress').textContent = '⏳ Subiendo ' + (idx+1) + ' de ' + total + ': ' + archivo.nombre;
+  var url = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/auto/upload';
+  var fd = new FormData();
+  // Convertir base64 a blob
+  var parts = archivo.dataUrl.split(',');
+  var mime = parts[0].match(/:(.*?);/)[1];
+  var bin = atob(parts[1]);
+  var arr = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  var blob = new Blob([arr], {type: mime});
+  fd.append('file', blob, archivo.nombre);
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+  fd.append('folder', 'treid_viaticos');
+  fetch(url, {method: 'POST', body: fd})
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.secure_url) {
+        callback(data.secure_url);
+      } else {
+        console.error('Cloudinary error:', data);
+        callback(archivo.dataUrl);
+      }
+    })
+    .catch(function(err){
+      console.error('Upload error:', err);
+      callback(archivo.dataUrl);
+    });
 }
 
 function guardarRegistroFinal(emp,fecha,comp,c,p,e,o,archivos){
@@ -1226,7 +1275,7 @@ function guardarRegistroFinal(emp,fecha,comp,c,p,e,o,archivos){
     cerrarModal();
     cargarDatos();
     var msg='Registro guardado';
-    if(archivos.length>0) msg+=' con '+archivos.length+' archivo(s) en Drive';
+    if(archivos.length>0) msg+=' con '+archivos.length+' archivo(s)';
     toast(msg,'g');
   });
 }
@@ -1253,3 +1302,6 @@ setInterval(function(){
 </script>
 </body>
 </html>
+cStatus(estado, texto) {
+  var dot = docu
+  
