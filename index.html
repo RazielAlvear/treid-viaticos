@@ -501,7 +501,7 @@
 // ════════════════════════════════════════════════
 // CONFIG — URL de tu Google Apps Script
 // ════════════════════════════════════════════════
-var API_URL = 'https://script.google.com/macros/s/AKfycbwFmCo6LsIW3_L0ZZEU3fn5uHAjo1DjEVZYV5zYWqq_crzyoajo_6a3dWkxuHaAUYKTZQ/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbzonKNyFB64oD8pms8N6l7ISOnTPWVjuNzziqnJLsgUIS-tFWIjP5xdB15W7Wrukcbbvg/exec';
 
 // ════════════════════════════════════════════════
 // CONSTANTES
@@ -535,55 +535,71 @@ var LB_IDX  = 0;
 var conectado = false;
 
 // ════════════════════════════════════════════════
-// API — Comunicación con Google Apps Script
+// API — Comunicación con Google Apps Script (JSONP para evitar CORS)
 // ════════════════════════════════════════════════
+var _cbCount = 0;
+
+function jsonp(url, callback) {
+  var cbName = '_gcb' + (++_cbCount);
+  var timeout = setTimeout(function() {
+    delete window[cbName];
+    var s = document.getElementById(cbName);
+    if (s) s.parentNode.removeChild(s);
+    callback(new Error('Timeout'), null);
+  }, 15000);
+  window[cbName] = function(data) {
+    clearTimeout(timeout);
+    delete window[cbName];
+    var s = document.getElementById(cbName);
+    if (s) s.parentNode.removeChild(s);
+    callback(null, data);
+  };
+  var script = document.createElement('script');
+  script.id = cbName;
+  script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + cbName;
+  document.head.appendChild(script);
+}
+
 function apiPost(payload, callback) {
-  fetch(API_URL, {
-    method: 'POST',
-    body: JSON.stringify(payload)
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(data){ callback(null, data); })
-  .catch(function(err){ callback(err, null); });
+  var params = 'action=' + encodeURIComponent(payload.action) +
+    '&data=' + encodeURIComponent(JSON.stringify(payload));
+  jsonp(API_URL + '?' + params, callback);
 }
 
 function cargarDatos() {
   setSyncStatus('loading', 'Sincronizando...');
-  fetch(API_URL)
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (data.ok) {
-        DATA = data.registros || [];
-        // Parsear archivos si vienen como string
-        for (var i=0; i<DATA.length; i++) {
-          if (typeof DATA[i].archivos === 'string') {
-            try { DATA[i].archivos = JSON.parse(DATA[i].archivos); }
-            catch(e) { DATA[i].archivos = []; }
-          }
-          if (!DATA[i].archivos) DATA[i].archivos = [];
-          // Normalizar números
-          DATA[i].combustible     = parseFloat(DATA[i].combustible)     || 0;
-          DATA[i].peaje           = parseFloat(DATA[i].peaje)           || 0;
-          DATA[i].estacionamiento = parseFloat(DATA[i].estacionamiento) || 0;
-          DATA[i].otros           = parseFloat(DATA[i].otros)           || 0;
-          DATA[i].total_dia       = parseFloat(DATA[i].total_dia)       || 0;
-        }
-        conectado = true;
-        setSyncStatus('ok', 'Conectado · ' + DATA.length + ' registros');
-        document.getElementById('loading-screen').classList.add('hidden');
-        renderTodo();
-        renderPg(pgActual);
-      } else {
-        setSyncStatus('err', 'Error al cargar');
-        document.getElementById('loading-screen').classList.add('hidden');
-        toast('Error al cargar datos: ' + (data.error||''), 'r');
-      }
-    })
-    .catch(function(err){
-      setSyncStatus('err', 'Sin conexión');
+  jsonp(API_URL + '?action=obtener', function(err, data) {
+    if (err || !data) {
+      setSyncStatus('err', 'Sin conexion');
       document.getElementById('loading-screen').classList.add('hidden');
-      toast('No se pudo conectar con el servidor. Verifica tu conexión.', 'r');
-    });
+      toast('No se pudo conectar. Verifica tu conexion.', 'r');
+      return;
+    }
+    if (data.ok) {
+      DATA = data.registros || [];
+      for (var i=0; i<DATA.length; i++) {
+        if (typeof DATA[i].archivos === 'string') {
+          try { DATA[i].archivos = JSON.parse(DATA[i].archivos); }
+          catch(e) { DATA[i].archivos = []; }
+        }
+        if (!DATA[i].archivos) DATA[i].archivos = [];
+        DATA[i].combustible     = parseFloat(DATA[i].combustible)     || 0;
+        DATA[i].peaje           = parseFloat(DATA[i].peaje)           || 0;
+        DATA[i].estacionamiento = parseFloat(DATA[i].estacionamiento) || 0;
+        DATA[i].otros           = parseFloat(DATA[i].otros)           || 0;
+        DATA[i].total_dia       = parseFloat(DATA[i].total_dia)       || 0;
+      }
+      conectado = true;
+      setSyncStatus('ok', 'Conectado · ' + DATA.length + ' registros');
+      document.getElementById('loading-screen').classList.add('hidden');
+      renderTodo();
+      renderPg(pgActual);
+    } else {
+      setSyncStatus('err', 'Error al cargar');
+      document.getElementById('loading-screen').classList.add('hidden');
+      toast('Error: ' + (data.error||''), 'r');
+    }
+  });
 }
 
 function setSyncStatus(estado, texto) {
