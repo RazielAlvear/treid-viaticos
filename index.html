@@ -1215,7 +1215,9 @@ function guardar(){
 
 function subirCloudinary(archivo, idx, total, callback) {
   document.getElementById('upload-progress').textContent = '⏳ Subiendo ' + (idx+1) + ' de ' + total + ': ' + archivo.nombre;
-  var url = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/auto/upload';
+  var isPdf = archivo.nombre.toLowerCase().endsWith('.pdf');
+  var resourceType = isPdf ? 'raw' : 'image';
+  var url = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/' + resourceType + '/upload';
   var fd = new FormData();
   // Convertir base64 a blob
   var parts = archivo.dataUrl.split(',');
