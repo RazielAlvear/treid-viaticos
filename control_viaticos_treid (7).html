@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TREID — Control de Viáticos</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0D0F14; --surface:#13161D; --panel:#181C25;
+    --border:#252A36; --border2:#2E3445;
+    --text:#E2E8F0; --muted:#6B7694;
+    --accent:#4F8EF7; --green:#22C55E; --red:#EF4444; --yellow:#F59E0B;
+    --font:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh;overflow-x:hidden;}
+
+  /* ── SIDEBAR ── */
+  #sidebar{position:fixed;left:0;top:0;bottom:0;width:224px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;}
+  .sb-logo{padding:24px 20px 20px;border-bottom:1px solid var(--border);}
+  .sb-logo .mark{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--accent);}
+  .sb-logo .sub{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:3px;}
+  .nav-sec{padding:16px 12px 6px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:600;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 14px;margin:1px 8px;border-radius:6px;cursor:pointer;color:var(--muted);font-size:12.5px;border:1px solid transparent;transition:all .15s;}
+  .nav-item:hover{background:var(--panel);color:var(--text);}
+  .nav-item.active{background:rgba(79,142,247,.12);color:var(--accent);border-color:rgba(79,142,247,.25);font-weight:600;}
+  .nb{margin-left:auto;background:var(--accent);color:#fff;font-size:9px;font-family:var(--mono);padding:1px 6px;border-radius:20px;font-weight:600;}
+  .sb-footer{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);}
+  .sb-footer span{color:var(--accent);font-family:var(--mono);font-size:10px;}
+
+  /* ── TOPBAR ── */
+  #main{margin-left:224px;min-height:100vh;display:flex;flex-direction:column;}
+  #topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:12px;position:sticky;top:0;z-index:50;}
+  .tb-title{font-size:14px;font-weight:600;}
+  .tb-crumb{color:var(--muted);font-size:12px;}
+  .tb-crumb::before{content:'/';margin:0 8px;}
+  .tb-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+  .pill{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;font-family:var(--mono);}
+  .pill.ok{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3);}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* ── BOTONES ── */
+  .btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--panel);color:var(--text);font-size:12px;font-family:var(--font);cursor:pointer;transition:all .15s;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.primary:hover{background:#3a7de8;}
+  .btn.danger{border-color:rgba(239,68,68,.3);color:var(--red);}
+  .btn.danger:hover{background:rgba(239,68,68,.1);}
+
+  /* ── PÁGINAS ── */
+  #content{flex:1;padding:28px;display:flex;flex-direction:column;gap:20px;}
+  .page{display:none;flex-direction:column;gap:20px;}
+  .page.active{display:flex;animation:fadeIn .2s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* ── KPIs ── */
+  .kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kc,var(--accent));}
+  .kpi-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:600;}
+  .kpi-value{font-family:var(--mono);font-size:22px;font-weight:600;margin-top:8px;color:var(--kc,var(--text));line-height:1;}
+  .kpi-sub{font-size:10px;color:var(--muted);margin-top:5px;}
+  .kpi-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:26px;opacity:.1;}
+
+  /* ── SECCIÓN ── */
+  .sec-head{display:flex;align-items:center;justify-content:space-between;}
+  .sec-title{font-size:13px;font-weight:700;}
+  .sec-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  /* ── VACÍO ── */
+  .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--muted);text-align:center;}
+  .empty-icon{font-size:36px;margin-bottom:12px;opacity:.5;}
+  .empty-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px;}
+  .empty-sub{font-size:12px;margin-bottom:20px;}
+
+  /* ── TABLA ── */
+  .tbl-wrap{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .tbl-toolbar{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .search{flex:1;min-width:160px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--text);font-size:12px;font-family:var(--font);outline:none;transition:border-color .15s;}
+  .search:focus{border-color:var(--accent);}
+  .search::placeholder{color:var(--muted);}
+  .fbtn{padding:6px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .15s;white-space:nowrap;}
+  .fbtn:hover,.fbtn.on{border-color:var(--accent);color:var(--accent);background:rgba(79,142,247,.08);}
+  table{width:100%;border-collapse:collapse;}
+  thead tr{background:var(--surface);}
+  thead th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+  tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+  tbody tr:last-child{border-bottom:none;}
+  tbody tr:hover{background:rgba(255,255,255,.025);}
+  td{padding:10px 14px;font-size:12px;vertical-align:middle;}
+  .tn{font-family:var(--mono);font-size:12px;}
+
+  /* ── BADGES ── */
+  .badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:var(--mono);}
+  .badge.ok{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25);}
+  .badge.warn{background:rgba(245,158,11,.12);color:var(--yellow);border:1px solid rgba(245,158,11,.25);}
+  .badge.alq{background:rgba(79,142,247,.12);color:#4F8EF7;border:1px solid rgba(79,142,247,.25);}
+  .badge.cmp{background:rgba(124,92,252,.12);color:#7C5CFC;border:1px solid rgba(124,92,252,.25);}
+
+  /* ── CHARTS ── */
+  .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .chart-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px 22px;}
+  .chart-title{font-size:12px;font-weight:700;margin-bottom:3px;}
+  .chart-sub{font-size:11px;color:var(--muted);margin-bottom:18px;}
+  .bar-chart{display:flex;flex-direction:column;gap:14px;}
+  .bar-row{display:flex;align-items:center;gap:12px;}
+  .bar-label{width:116px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;}
+  .bar-track{flex:1;background:var(--surface);border-radius:4px;height:20px;position:relative;overflow:hidden;border:1px solid var(--border);}
+  .bar-fill{height:100%;border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:7px;min-width:2px;}
+  .bar-val{font-family:var(--mono);font-size:10px;font-weight:600;color:rgba(255,255,255,.9);white-space:nowrap;}
+  .donut-wrap{display:flex;align-items:center;gap:24px;}
+  .donut-legend{display:flex;flex-direction:column;gap:10px;}
+  .leg-item{display:flex;align-items:center;gap:8px;}
+  .leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+  .leg-name{font-size:11px;color:var(--muted);}
+  .leg-val{font-family:var(--mono);font-size:12px;font-weight:600;margin-left:auto;padding-left:16px;}
+
+  /* ── EMPRESA CARDS ── */
+  .empresa-strip{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .empresa-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;position:relative;overflow:hidden;}
+  .empresa-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--ec);}
+  .empresa-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;font-family:var(--mono);background:rgba(255,255,255,.06);border:1px solid var(--border2);margin-bottom:14px;}
+  .empresa-badge .dot-e{width:7px;height:7px;border-radius:50%;background:var(--ec);}
+  .empresa-name{font-size:18px;font-weight:700;margin-bottom:4px;color:var(--ec);}
+  .empresa-emps{font-size:11px;color:var(--muted);margin-bottom:20px;}
+  .empresa-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+  .ek{background:var(--surface);border-radius:8px;padding:12px;border:1px solid var(--border);}
+  .ek-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;}
+  .ek-val{font-family:var(--mono);font-size:16px;font-weight:600;margin-top:5px;}
+  .empresa-cats{display:flex;flex-direction:column;gap:10px;}
+  .eca-row{display:flex;align-items:center;gap:10px;}
+  .eca-label{width:108px;font-size:11px;color:var(--muted);flex-shrink:0;}
+  .eca-track{flex:1;background:var(--surface);border-radius:3px;height:14px;overflow:hidden;border:1px solid var(--border);}
+  .eca-fill{height:100%;border-radius:2px;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;min-width:2px;}
+  .eca-val{font-family:var(--mono);font-size:9px;font-weight:600;color:rgba(255,255,255,.85);}
+  .empresa-total{display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1px solid var(--border);margin-top:4px;}
+  .empresa-total-label{font-size:11px;color:var(--muted);}
+  .empresa-total-val{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--ec);}
+
+  /* ── EMP CARDS ── */
+  .emp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .emp-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;}
+  .emp-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .emp-av{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:var(--mono);flex-shrink:0;}
+  .emp-name{font-size:13px;font-weight:700;}
+  .emp-sub{font-size:10px;color:var(--muted);margin-top:1px;font-family:var(--mono);}
+  .emp-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .emp-stat{background:var(--surface);border-radius:6px;padding:10px 12px;border:1px solid var(--border);}
+  .es-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;}
+  .es-val{font-family:var(--mono);font-size:16px;font-weight:600;margin-top:4px;}
+  .prog-track{background:var(--surface);border-radius:4px;height:6px;overflow:hidden;border:1px solid var(--border);}
+  .prog-fill{height:100%;border-radius:4px;}
+  .prog-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:5px;}
+
+  /* ── CONFIG ── */
+  .cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .cfg-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;}
+  .cfg-title{font-size:11px;font-weight:700;margin-bottom:14px;color:var(--accent);font-family:var(--mono);letter-spacing:.5px;}
+  .cfg-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;}
+  .cfg-row:last-child{border-bottom:none;}
+  .cfg-lbl{color:var(--muted);}
+  .cfg-val{font-family:var(--mono);font-weight:600;}
+
+  /* ── ARCHIVOS ── */
+  .arch-filters{display:flex;gap:10px;align-items:center;}
+  .arch-sel{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--text);font-size:12px;font-family:var(--font);outline:none;cursor:pointer;}
+  .arch-sel:focus{border-color:var(--accent);}
+  .arch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;}
+  .arch-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .2s,transform .15s;}
+  .arch-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .arch-preview{height:140px;background:var(--surface);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;cursor:pointer;}
+  .arch-preview img{width:100%;height:100%;object-fit:cover;transition:transform .2s;}
+  .arch-card:hover .arch-preview img{transform:scale(1.04);}
+  .arch-preview .big-icon{font-size:44px;opacity:.4;}
+  .arch-preview .ext-pill{position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.7);color:#fff;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;}
+  .arch-info{padding:12px 14px;}
+  .arch-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px;}
+  .arch-meta{font-size:10px;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .arch-actions{display:flex;gap:6px;margin-top:10px;}
+  .arch-btn{flex:1;padding:5px 0;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:10px;font-family:var(--font);cursor:pointer;transition:all .15s;text-align:center;}
+  .arch-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .arch-btn.del:hover{border-color:var(--red);color:var(--red);}
+
+  /* ── DROP ZONE ── */
+  .drop-zone{border:2px dashed var(--border2);border-radius:10px;padding:24px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);position:relative;}
+  .drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:rgba(79,142,247,.05);}
+  .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .dz-icon{font-size:28px;margin-bottom:8px;}
+  .dz-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;}
+  .dz-sub{font-size:11px;color:var(--muted);}
+  .file-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:12px;}
+  .fth{background:var(--surface);border:1px solid var(--border);border-radius:7px;overflow:hidden;position:relative;aspect-ratio:1;cursor:default;}
+  .fth img{width:100%;height:100%;object-fit:cover;}
+  .fth .fth-body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:5px;padding:8px;}
+  .fth .fth-ext{font-family:var(--mono);font-size:8px;font-weight:700;padding:2px 5px;border-radius:3px;background:rgba(79,142,247,.15);color:var(--accent);}
+  .fth .fth-nm{font-size:8px;color:var(--muted);text-align:center;word-break:break-all;line-height:1.3;}
+  .fth .fth-x{position:absolute;top:3px;right:3px;background:rgba(239,68,68,.85);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;}
+  .fth:hover .fth-x{opacity:1;}
+
+  /* ── LIGHTBOX ── */
+  #lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:2000;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:20px;}
+  #lb.open{display:flex;}
+  #lb img{max-width:92vw;max-height:82vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.8);}
+  #lb-name{font-size:12px;color:var(--muted);}
+  #lb-close{position:absolute;top:18px;right:22px;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  #lb-close:hover{background:rgba(255,255,255,.22);}
+  #lb-nav{display:flex;gap:12px;}
+  #lb-nav button{background:rgba(255,255,255,.1);border:none;color:#fff;padding:7px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-family:var(--font);}
+  #lb-nav button:hover{background:rgba(255,255,255,.2);}
+
+  /* ── MODAL ── */
+  #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:999;align-items:center;justify-content:center;}
+  #overlay.open{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:28px;width:580px;max-height:92vh;overflow-y:auto;box-shadow:0 40px 80px rgba(0,0,0,.6);animation:mIn .2s cubic-bezier(.34,1.4,.64,1);}
+  @keyframes mIn{from{transform:scale(.95) translateY(8px);opacity:0}}
+  .modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+  .modal-sub{font-size:12px;color:var(--muted);margin-bottom:22px;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+  .fg{display:flex;flex-direction:column;gap:5px;}
+  .fg.full{grid-column:1/-1;}
+  label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  input,select{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .15s;width:100%;}
+  input:focus,select:focus{border-color:var(--accent);}
+  select option{background:var(--surface);}
+  .total-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .divider{height:1px;background:var(--border);margin:16px 0;}
+  .modal-foot{display:flex;justify-content:flex-end;gap:10px;padding-top:18px;border-top:1px solid var(--border);}
+
+  /* ── TOAST ── */
+  #toast{position:fixed;bottom:28px;right:28px;background:var(--panel);border:1px solid var(--border2);border-radius:8px;padding:13px 18px;font-size:13px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:9999;transform:translateX(140%);transition:transform .3s cubic-bezier(.34,1.4,.64,1);max-width:320px;}
+  #toast.show{transform:none;}
+  #toast.g{border-color:rgba(34,197,94,.4);}
+  #toast.r{border-color:rgba(239,68,68,.4);}
+
+  ::-webkit-scrollbar{width:5px;height:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="sb-logo">
+    <div class="mark">TREID</div>
+    <div class="sub">Control de Viáticos</div>
+  </div>
+  <div class="nav-sec">Principal</div>
+  <div class="nav-item active" onclick="nav('dashboard')">⬛ Dashboard</div>
+  <div class="nav-item" onclick="nav('registros')">◻ Registros</div>
+  <div class="nav-item" onclick="nav('archivos')">◻ Archivos <span class="nb" id="nb-arch" style="display:none">0</span></div>
+  <div class="nav-sec">Análisis</div>
+  <div class="nav-item" onclick="nav('empresas')">◻ Por Empresa</div>
+  <div class="nav-item" onclick="nav('empleados')">◻ Por Empleado</div>
+  <div class="nav-item" onclick="nav('categorias')">◻ Por Categoría</div>
+  <div class="nav-sec">Sistema</div>
+  <div class="nav-item" onclick="nav('config')">◻ Configuración</div>
+  <div class="sb-footer">Proyecto activo<br><span>ALQUIPOP / COMPRADAMUS</span></div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <span class="tb-title" id="pg-title">Dashboard</span>
+    <span class="tb-crumb" id="pg-crumb">Resumen General</span>
+    <div class="tb-right">
+      <div class="pill ok"><span class="dot"></span>Sistema Activo</div>
+      <button class="btn primary" onclick="abrirModal()">+ Nuevo Registro</button>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="pg-dashboard">
+      <div class="kpi-strip" id="kpis"></div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">Gasto por Empleado</div>
+          <div class="chart-sub">Total acumulado por persona</div>
+          <div id="ch-emp-wrap"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Distribución por Categoría</div>
+          <div class="chart-sub">Porcentaje del total ejercido</div>
+          <div id="ch-donut-wrap"></div>
+        </div>
+      </div>
+      <div>
+        <div class="sec-head" style="margin-bottom:12px">
+          <div><div class="sec-title">Actividad Reciente</div><div class="sec-sub">Últimos 8 registros ingresados</div></div>
+        </div>
+        <div class="tbl-wrap" id="tbl-reciente-wrap"></div>
+      </div>
+    </div>
+
+    <!-- REGISTROS -->
+    <div class="page" id="pg-registros">
+      <div class="sec-head">
+        <div><div class="sec-title">Registro de Gastos</div><div class="sec-sub">Todos los registros capturados</div></div>
+        <button class="btn primary" onclick="abrirModal()">+ Agregar</button>
+      </div>
+      <div class="tbl-wrap">
+        <div class="tbl-toolbar">
+          <input class="search" id="search" placeholder="🔍 Buscar empleado, empresa, fecha..." oninput="renderFull()">
+          <button class="fbtn on"  id="fil-todos"  onclick="setFil('')">Todos</button>
+          <button class="fbtn" id="fil-alq"    onclick="setFil('Alquipop')">Alquipop</button>
+          <button class="fbtn" id="fil-cmp"    onclick="setFil('Compradamus')">Compradamus</button>
+          <button class="fbtn" id="fil-alex"   onclick="setFil('Alexander')">Alexander</button>
+          <button class="fbtn" id="fil-romel"  onclick="setFil('Romel')">Romel</button>
+          <button class="fbtn" id="fil-mike"   onclick="setFil('Miguel')">Miguel</button>
+        </div>
+        <div id="tb-full-wrap"></div>
+      </div>
+    </div>
+
+    <!-- ARCHIVOS -->
+    <div class="page" id="pg-archivos">
+      <div class="sec-head">
+        <div><div class="sec-title">Archivos y Comprobantes</div><div class="sec-sub">Tickets, facturas y documentos adjuntos</div></div>
+        <div class="arch-filters">
+          <select class="arch-sel" id="af-emp" onchange="renderArchivos()">
+            <option value="">Todos los empleados</option>
+            <option value="Alexander Garcia Ramírez">Alexander</option>
+            <option value="Romel Garcia Reyes">Romel</option>
+            <option value="Miguel Angel Ramírez Nava">Miguel</option>
+          </select>
+          <select class="arch-sel" id="af-tipo" onchange="renderArchivos()">
+            <option value="">Todos los tipos</option>
+            <option value="img">Imágenes</option>
+            <option value="pdf">PDFs</option>
+            <option value="otro">Otros</option>
+          </select>
+        </div>
+      </div>
+      <div id="arch-wrap"></div>
+    </div>
+
+    <!-- EMPRESAS -->
+    <div class="page" id="pg-empresas">
+      <div class="sec-head"><div><div class="sec-title">Análisis por Empresa</div><div class="sec-sub">Comparativa Alquipop vs Compradamus</div></div></div>
+      <div class="empresa-strip" id="empresa-strip"></div>
+      <div class="chart-card" id="empresa-comp-wrap"></div>
+    </div>
+
+    <!-- EMPLEADOS -->
+    <div class="page" id="pg-empleados">
+      <div class="sec-head"><div><div class="sec-title">Análisis por Empleado</div><div class="sec-sub">Consolidado acumulado por persona</div></div></div>
+      <div id="emp-grid-wrap"></div>
+    </div>
+
+    <!-- CATEGORÍAS -->
+    <div class="page" id="pg-categorias">
+      <div class="sec-head"><div><div class="sec-title">Análisis por Categoría</div><div class="sec-sub">Desglose de gastos por rubro</div></div></div>
+      <div id="cat-wrap"></div>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="page" id="pg-config">
+      <div class="sec-head"><div><div class="sec-title">Configuración</div><div class="sec-sub">Parámetros del sistema</div></div></div>
+      <div class="cfg-grid">
+        <div class="cfg-card">
+          <div class="cfg-title">// ALQUIPOP</div>
+          <div class="cfg-row"><span class="cfg-lbl">Alexander Garcia Ramírez</span><span class="badge ok">Activo</span></div>
+        </div>
+        <div class="cfg-card">
+          <div class="cfg-title">// COMPRADAMUS</div>
+          <div class="cfg-row"><span class="cfg-lbl">Romel Garcia Reyes</span><span class="badge ok">Activo</span></div>
+          <div class="cfg-row"><span class="cfg-lbl">Miguel Angel Ramírez Nava</span><span class="badge ok">Activo</span></div>
+        </div>
+        <div class="cfg-card">
+          <div class="cfg-title">// PARÁMETROS_GENERALES</div>
+          <div class="cfg-row"><span class="cfg-lbl">Moneda</span><span class="cfg-val">Pesos MXN</span></div>
+          <div class="cfg-row"><span class="cfg-lbl">Periodicidad reporte</span><span class="cfg-val">Semanal</span></div>
+          <div class="cfg-row"><span class="cfg-lbl">Depósito semanal</span><span class="cfg-val">$2,000 MXN</span></div>
+        </div>
+        <div class="cfg-card">
+          <div class="cfg-title">// ARCHIVOS_SOPORTADOS</div>
+          <div class="cfg-row"><span class="cfg-lbl">Imágenes</span><span class="cfg-val">JPG, PNG, WEBP, HEIC</span></div>
+          <div class="cfg-row"><span class="cfg-lbl">Documentos</span><span class="cfg-val">PDF</span></div>
+          <div class="cfg-row"><span class="cfg-lbl">Otros</span><span class="cfg-val">Cualquier formato</span></div>
+          <div class="cfg-row"><span class="cfg-lbl">Múltiples archivos</span><span class="badge ok">Soportado</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL NUEVO REGISTRO -->
+<div id="overlay" onclick="clickOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">Nuevo Registro de Gasto</div>
+    <div class="modal-sub">Captura los viáticos del día y adjunta los comprobantes</div>
+
+    <div class="form-grid">
+      <div class="fg full">
+        <label>Empleado</label>
+        <select id="m-emp">
+          <option value="Alexander Garcia Ramírez">Alexander Garcia Ramírez — Alquipop</option>
+          <option value="Romel Garcia Reyes">Romel Garcia Reyes — Compradamus</option>
+          <option value="Miguel Angel Ramírez Nava">Miguel Angel Ramírez Nava — Compradamus</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Fecha</label>
+        <input type="date" id="m-fecha">
+      </div>
+      <div class="fg">
+        <label>Comprobante</label>
+        <select id="m-comp">
+          <option value="Sí">✓ Sí — Adjunto</option>
+          <option value="No">✗ No — Pendiente</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Combustible ($)</label>
+        <input type="number" id="m-comb" placeholder="0.00" min="0" step="0.01" oninput="calcTotal()">
+      </div>
+      <div class="fg">
+        <label>Peaje ($)</label>
+        <input type="number" id="m-peaje" placeholder="0.00" min="0" step="0.01" oninput="calcTotal()">
+      </div>
+      <div class="fg">
+        <label>Estacionamiento ($)</label>
+        <input type="number" id="m-estac" placeholder="0.00" min="0" step="0.01" oninput="calcTotal()">
+      </div>
+      <div class="fg">
+        <label>Otros ($)</label>
+        <input type="number" id="m-otros" placeholder="0.00" min="0" step="0.01" oninput="calcTotal()">
+      </div>
+    </div>
+
+    <div class="total-box">
+      <span style="font-size:12px;color:var(--muted)">Total del día</span>
+      <span id="m-total" style="font-family:var(--mono);font-size:22px;font-weight:700">$0.00</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ZONA DE ARCHIVOS -->
+    <div style="margin-bottom:4px">
+      <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+        📎 Adjuntar Archivos
+        <span style="font-size:10px;font-weight:400;color:var(--muted)">Tickets, facturas, fotos — opcional</span>
+      </div>
+      <div class="drop-zone" id="m-dropzone"
+        ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
+        <input type="file" id="m-files" multiple
+          accept="image/*,.pdf,.heic,.heif"
+          onchange="agregarArchivos(this.files)">
+        <div class="dz-icon">🗂️</div>
+        <div class="dz-title">Arrastra archivos aquí o haz clic para seleccionar</div>
+        <div class="dz-sub">JPG · PNG · PDF · HEIC · Múltiples archivos soportados</div>
+      </div>
+      <div class="file-thumbs" id="m-thumbs"></div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn primary" onclick="guardar()">Guardar Registro</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lb" onclick="lbClickOutside(event)">
+  <button id="lb-close" onclick="lbCerrar()">✕</button>
+  <img id="lb-img" src="" alt="">
+  <div id="lb-name"></div>
+  <div id="lb-nav">
+    <button onclick="lbPrev()">← Anterior</button>
+    <button onclick="lbNext()">Siguiente →</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONSTANTES
+// ═══════════════════════════════════════════
+var EMPRESAS = {
+  'Alquipop':    { color:'#4F8EF7', emps:['Alexander Garcia Ramírez'] },
+  'Compradamus': { color:'#7C5CFC', emps:['Romel Garcia Reyes','Miguel Angel Ramírez Nava'] }
+};
+var EMP_EMPRESA = {
+  'Alexander Garcia Ramírez': 'Alquipop',
+  'Romel Garcia Reyes':        'Compradamus',
+  'Miguel Angel Ramírez Nava': 'Compradamus'
+};
+var EMPS = ['Alexander Garcia Ramírez','Romel Garcia Reyes','Miguel Angel Ramírez Nava'];
+var AV = {
+  'Alexander Garcia Ramírez': {i:'AG', c:'4F8EF7'},
+  'Romel Garcia Reyes':        {i:'RG', c:'7C5CFC'},
+  'Miguel Angel Ramírez Nava': {i:'MA', c:'22C55E'}
+};
+var CATS = [
+  {n:'Combustible',    k:'combustible',    c:'#4F8EF7'},
+  {n:'Peaje',          k:'peaje',          c:'#7C5CFC'},
+  {n:'Estacionamiento',k:'estacionamiento',c:'#22C55E'},
+  {n:'Otros',          k:'otros',          c:'#F59E0B'},
+];
+
+var DATA = [];
+// archivos pendientes mientras el modal está abierto
+var ARCHIVOS_TEMP = [];
+// lightbox state
+var LB_LIST = [];
+var LB_IDX  = 0;
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function fmt(v) {
+  return '$' + Number(v).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtF(d) {
+  var p = d.split('-'); return p[2]+'/'+p[1]+'/'+p[0];
+}
+function hoy() {
+  return new Date().toISOString().split('T')[0];
+}
+function sumKey(arr, key) {
+  var s = 0; for (var i=0;i<arr.length;i++) s += arr[i][key]; return s;
+}
+function byEmpresa(e) { return DATA.filter(function(r){return EMP_EMPRESA[r.empleado]===e;}); }
+function byEmp(e)     { return DATA.filter(function(r){return r.empleado===e;}); }
+function emptyState(lbl) {
+  return '<div class="empty"><div class="empty-icon">📋</div>' +
+    '<div class="empty-title">Sin registros aún</div>' +
+    '<div class="empty-sub">Agrega el primer registro para comenzar</div>' +
+    (lbl?'<button class="btn primary" onclick="abrirModal()">+ '+lbl+'</button>':'')+
+    '</div>';
+}
+function tipoArch(nombre) {
+  var ext = nombre.split('.').pop().toLowerCase();
+  if (['jpg','jpeg','png','gif','webp','heic','heif','bmp','svg'].indexOf(ext)>=0) return 'img';
+  if (ext==='pdf') return 'pdf';
+  return 'otro';
+}
+function iconArch(tipo, nombre) {
+  if (tipo==='pdf')  return '📄';
+  if (tipo==='img')  return '🖼';
+  return '📎';
+}
+
+// ═══════════════════════════════════════════
+// NAVEGACIÓN
+// ═══════════════════════════════════════════
+var pgActual = 'dashboard';
+var TITULOS = {dashboard:'Dashboard',registros:'Registros',archivos:'Archivos',empresas:'Por Empresa',empleados:'Por Empleado',categorias:'Por Categoría',config:'Configuración'};
+var SUBS    = {dashboard:'Resumen General',registros:'Todos los gastos',archivos:'Tickets y comprobantes',empresas:'Alquipop vs Compradamus',empleados:'Vista individual',categorias:'Desglose por rubro',config:'Parámetros'};
+var ORDEN   = ['dashboard','registros','archivos','empresas','empleados','categorias','config'];
+
+function nav(pg) {
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+  document.getElementById('pg-'+pg).classList.add('active');
+  var idx = ORDEN.indexOf(pg);
+  var items = document.querySelectorAll('.nav-item');
+  if (items[idx]) items[idx].classList.add('active');
+  document.getElementById('pg-title').textContent = TITULOS[pg];
+  document.getElementById('pg-crumb').textContent = SUBS[pg];
+  pgActual = pg;
+  renderPg(pg);
+}
+function renderPg(pg) {
+  if (pg==='dashboard')  { renderKPIs(); renderCharts(); renderReciente(); }
+  if (pg==='registros')  renderFull();
+  if (pg==='archivos')   renderArchivos();
+  if (pg==='empresas')   renderEmpresas();
+  if (pg==='empleados')  renderEmps();
+  if (pg==='categorias') renderCats();
+}
+
+// ═══════════════════════════════════════════
+// BADGE ARCHIVOS
+// ═══════════════════════════════════════════
+function updateArchBadge() {
+  var total = 0;
+  for (var i=0;i<DATA.length;i++) total += DATA[i].archivos.length;
+  var el = document.getElementById('nb-arch');
+  if (total>0) { el.style.display='inline'; el.textContent=total; }
+  else el.style.display='none';
+}
+
+// ═══════════════════════════════════════════
+// KPIs
+// ═══════════════════════════════════════════
+function renderKPIs() {
+  var totalG  = sumKey(DATA,'total_dia');
+  var sinComp = DATA.filter(function(r){return r.comprobante==='No';}).length;
+  var totAlq  = sumKey(byEmpresa('Alquipop'),'total_dia');
+  var totCmp  = sumKey(byEmpresa('Compradamus'),'total_dia');
+  var kpis = [
+    {label:'Total Ejercido',  val:fmt(totalG),  sub:DATA.length+' registro'+(DATA.length!==1?'s':''), c:'#4F8EF7', ic:'💳'},
+    {label:'Alquipop',        val:fmt(totAlq),  sub:'Alexander · '+byEmpresa('Alquipop').length+' reg.', c:'#4F8EF7', ic:'🏢'},
+    {label:'Compradamus',     val:fmt(totCmp),  sub:'Romel+Miguel · '+byEmpresa('Compradamus').length+' reg.', c:'#7C5CFC', ic:'🏢'},
+    {label:'Sin Comprobante', val:''+sinComp,   sub:sinComp>0?'Requieren adjunto':'Al corriente', c:sinComp>0?'#F59E0B':'#22C55E', ic:'📄'},
+  ];
+  var html='';
+  for (var i=0;i<kpis.length;i++) {
+    var k=kpis[i];
+    html+='<div class="kpi-card" style="--kc:'+k.c+'">'+
+      '<div class="kpi-label">'+k.label+'</div>'+
+      '<div class="kpi-value">'+k.val+'</div>'+
+      '<div class="kpi-sub">'+k.sub+'</div>'+
+      '<div class="kpi-icon">'+k.ic+'</div></div>';
+  }
+  document.getElementById('kpis').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════
+function renderCharts() {
+  var empWrap = document.getElementById('ch-emp-wrap');
+  if (DATA.length===0) {
+    empWrap.innerHTML='<div class="empty" style="padding:32px"><div class="empty-icon" style="font-size:28px">📊</div><div class="empty-sub">Sin datos aún</div></div>';
+  } else {
+    var tots=[]; var maxV=0;
+    for (var ei=0;ei<EMPS.length;ei++) {
+      var t=sumKey(byEmp(EMPS[ei]),'total_dia'); tots.push(t); if(t>maxV) maxV=t;
+    }
+    if (!maxV) maxV=1;
+    var html='<div class="bar-chart">';
+    for (var ei=0;ei<EMPS.length;ei++) {
+      var emp=EMPS[ei], total=tots[ei];
+      var pct=Math.min(total/maxV*100,100);
+      var col=EMPRESAS[EMP_EMPRESA[emp]].color;
+      var nm=emp.split(' ')[0]+' '+emp.split(' ')[1];
+      html+='<div class="bar-row"><div class="bar-label" title="'+emp+'">'+nm+'</div>'+
+        '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+col+'">'+
+        (total>0?'<span class="bar-val">'+fmt(total)+'</span>':'')+
+        '</div></div></div>';
+    }
+    html+='</div>';
+    empWrap.innerHTML=html;
+  }
+  var donutWrap=document.getElementById('ch-donut-wrap');
+  if (DATA.length===0) {
+    donutWrap.innerHTML='<div class="empty" style="padding:32px"><div class="empty-icon" style="font-size:28px">🍩</div><div class="empty-sub">Sin datos aún</div></div>';
+    return;
+  }
+  var totC=[]; var grand=0;
+  for (var ci=0;ci<CATS.length;ci++) { var v=sumKey(DATA,CATS[ci].k); totC.push({n:CATS[ci].n,c:CATS[ci].c,v:v}); grand+=v; }
+  if (!grand) grand=1;
+  var R=50,cx=70,cy=70,sw=22,circ=2*Math.PI*R,off=0,svg='';
+  for (var i=0;i<totC.length;i++) {
+    var dash=totC[i].v/grand*circ;
+    if (totC[i].v===0){off+=dash;continue;}
+    svg+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R+'" fill="none" stroke="'+totC[i].c+'" stroke-width="'+sw+'" stroke-dasharray="'+dash+' '+(circ-dash)+'" stroke-dashoffset="'+(-(off))+'" transform="rotate(-90 '+cx+' '+cy+')"/>';
+    off+=dash;
+  }
+  svg+='<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" fill="#E2E8F0" font-size="11" font-family="IBM Plex Mono" font-weight="600">'+fmt(grand)+'</text>';
+  svg+='<text x="'+cx+'" y="'+(cy+10)+'" text-anchor="middle" fill="#6B7694" font-size="9">total</text>';
+  var leg='';
+  for (var i=0;i<totC.length;i++) {
+    leg+='<div class="leg-item"><div class="leg-dot" style="background:'+totC[i].c+'"></div>'+
+      '<span class="leg-name">'+totC[i].n+'</span><span class="leg-val" style="color:'+totC[i].c+'">'+fmt(totC[i].v)+'</span></div>';
+  }
+  donutWrap.innerHTML='<div class="donut-wrap"><svg width="140" height="140" viewBox="0 0 140 140">'+svg+'</svg><div class="donut-legend">'+leg+'</div></div>';
+}
+
+// ═══════════════════════════════════════════
+// RECIENTE
+// ═══════════════════════════════════════════
+function renderReciente() {
+  var wrap=document.getElementById('tbl-reciente-wrap');
+  if (DATA.length===0) { wrap.innerHTML=emptyState('Primer Registro'); return; }
+  var rows=DATA.slice().reverse().slice(0,8);
+  var html='<table><thead><tr><th>Empleado</th><th>Empresa</th><th>Fecha</th><th>Combustible</th><th>Peaje</th><th>Estac.</th><th>Otros</th><th>Total Día</th><th>Comp.</th><th>Archivos</th></tr></thead><tbody>';
+  for (var i=0;i<rows.length;i++) {
+    var r=rows[i], emp=EMP_EMPRESA[r.empleado], ecls=emp==='Alquipop'?'alq':'cmp';
+    var narch=r.archivos.length;
+    html+='<tr>'+
+      '<td style="font-weight:600">'+r.empleado.split(' ')[0]+'</td>'+
+      '<td><span class="badge '+ecls+'">'+emp+'</span></td>'+
+      '<td style="font-family:var(--mono);font-size:11px;color:var(--muted)">'+fmtF(r.fecha)+'</td>'+
+      '<td class="tn">'+fmt(r.combustible)+'</td>'+
+      '<td class="tn">'+fmt(r.peaje)+'</td>'+
+      '<td class="tn">'+fmt(r.estacionamiento)+'</td>'+
+      '<td class="tn">'+fmt(r.otros)+'</td>'+
+      '<td class="tn" style="font-weight:700">'+fmt(r.total_dia)+'</td>'+
+      '<td>'+(r.comprobante==='Sí'?'<span class="badge ok">✓</span>':'<span class="badge warn">✗</span>')+'</td>'+
+      '<td>'+(narch>0?'<span class="badge ok" style="cursor:pointer" onclick="verArchivosReg('+DATA.indexOf(r)+')">📎 '+narch+'</span>':'<span style="color:var(--muted);font-size:11px">—</span>')+'</td>'+
+    '</tr>';
+  }
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════
+// REGISTROS
+// ═══════════════════════════════════════════
+var filtroEmp='';
+function setFil(f) {
+  filtroEmp=f;
+  ['fil-todos','fil-alq','fil-cmp','fil-alex','fil-romel','fil-mike'].forEach(function(id){document.getElementById(id).classList.remove('on');});
+  var map={'':'fil-todos','Alquipop':'fil-alq','Compradamus':'fil-cmp','Alexander':'fil-alex','Romel':'fil-romel','Miguel':'fil-mike'};
+  if (map[f]) document.getElementById(map[f]).classList.add('on');
+  renderFull();
+}
+function renderFull() {
+  var wrap=document.getElementById('tb-full-wrap');
+  var q=(document.getElementById('search').value||'').toLowerCase();
+  var rows=[];
+  for (var i=0;i<DATA.length;i++) {
+    var r=DATA[i], ee=EMP_EMPRESA[r.empleado];
+    if (filtroEmp) {
+      if (filtroEmp==='Alquipop'    && ee!=='Alquipop')    continue;
+      if (filtroEmp==='Compradamus' && ee!=='Compradamus') continue;
+      if (filtroEmp!=='Alquipop' && filtroEmp!=='Compradamus' && r.empleado.indexOf(filtroEmp)<0) continue;
+    }
+    if (q && r.empleado.toLowerCase().indexOf(q)<0 && r.fecha.indexOf(q)<0 && ee.toLowerCase().indexOf(q)<0) continue;
+    rows.push({r:r,idx:i});
+  }
+  if (rows.length===0) { wrap.innerHTML=emptyState('Nuevo Registro'); return; }
+  var html='<table><thead><tr><th>#</th><th>Empleado</th><th>Empresa</th><th>Fecha</th><th>Combustible</th><th>Peaje</th><th>Estac.</th><th>Otros</th><th>Total Día</th><th>Comp.</th><th>Archivos</th><th></th></tr></thead><tbody>';
+  for (var j=0;j<rows.length;j++) {
+    var r=rows[j].r, idx=rows[j].idx, av=AV[r.empleado], ee=EMP_EMPRESA[r.empleado], ecls=ee==='Alquipop'?'alq':'cmp';
+    var narch=r.archivos.length;
+    html+='<tr>'+
+      '<td class="tn" style="color:var(--muted)">'+(j+1)+'</td>'+
+      '<td style="font-weight:600"><div style="display:flex;align-items:center;gap:8px">'+
+        '<div style="width:24px;height:24px;border-radius:4px;background:#'+av.c+'22;color:#'+av.c+';font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--mono)">'+av.i+'</div>'+
+        r.empleado.split(' ')[0]+'</div></td>'+
+      '<td><span class="badge '+ecls+'">'+ee+'</span></td>'+
+      '<td style="font-family:var(--mono);font-size:11px;color:var(--muted)">'+fmtF(r.fecha)+'</td>'+
+      '<td class="tn">'+fmt(r.combustible)+'</td>'+
+      '<td class="tn">'+fmt(r.peaje)+'</td>'+
+      '<td class="tn">'+fmt(r.estacionamiento)+'</td>'+
+      '<td class="tn">'+fmt(r.otros)+'</td>'+
+      '<td class="tn" style="font-weight:700">'+fmt(r.total_dia)+'</td>'+
+      '<td>'+(r.comprobante==='Sí'?'<span class="badge ok">✓</span>':'<span class="badge warn">✗ Pend.</span>')+'</td>'+
+      '<td>'+(narch>0?'<span class="badge ok" style="cursor:pointer" onclick="verArchivosReg('+idx+')">📎 '+narch+'</span>':'<span style="color:var(--muted);font-size:11px">—</span>')+'</td>'+
+      '<td><button class="btn danger" style="padding:4px 8px;font-size:10px" onclick="eliminar('+idx+')">✕</button></td>'+
+    '</tr>';
+  }
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+function eliminar(idx) {
+  DATA.splice(idx,1); renderTodo(); renderFull(); toast('Registro eliminado','r');
+}
+
+// ═══════════════════════════════════════════
+// ARCHIVOS (página)
+// ═══════════════════════════════════════════
+function renderArchivos() {
+  var wrap=document.getElementById('arch-wrap');
+  var filtEmp=document.getElementById('af-emp').value;
+  var filtTipo=document.getElementById('af-tipo').value;
+
+  // Recolectar todos los archivos con metadata
+  var items=[];
+  for (var i=0;i<DATA.length;i++) {
+    var r=DATA[i];
+    if (filtEmp && r.empleado!==filtEmp) continue;
+    for (var j=0;j<r.archivos.length;j++) {
+      var a=r.archivos[j];
+      var tipo=tipoArch(a.nombre);
+      if (filtTipo && tipo!==filtTipo) continue;
+      items.push({arch:a, tipo:tipo, reg:r, ridx:i, aidx:j});
+    }
+  }
+
+  if (items.length===0) {
+    wrap.innerHTML='<div class="empty">'+
+      '<div class="empty-icon">📂</div>'+
+      '<div class="empty-title">Sin archivos adjuntos</div>'+
+      '<div class="empty-sub">Los comprobantes se adjuntan al crear un registro</div>'+
+      '<button class="btn primary" onclick="abrirModal()">+ Nuevo Registro</button>'+
+      '</div>';
+    return;
+  }
+
+  // Construir lista para lightbox (solo imágenes)
+  LB_LIST=[];
+  for (var i=0;i<items.length;i++) {
+    if (items[i].tipo==='img') LB_LIST.push({src:items[i].arch.dataUrl, nombre:items[i].arch.nombre});
+  }
+
+  var html='<div class="arch-grid">';
+  var lbI=0;
+  for (var i=0;i<items.length;i++) {
+    var it=items[i], a=it.arch, tipo=it.tipo;
+    var emp=EMP_EMPRESA[it.reg.empleado], ecls=emp==='Alquipop'?'alq':'cmp';
+    var preview='';
+    var thisLbI=lbI;
+    if (tipo==='img') {
+      preview='<img src="'+a.dataUrl+'" alt="'+a.nombre+'" onclick="lbAbrir('+thisLbI+')">';
+      lbI++;
+    } else {
+      var ico=tipo==='pdf'?'📄':'📎';
+      preview='<div class="big-icon">'+ico+'</div>';
+    }
+    var ext=a.nombre.split('.').pop().toUpperCase();
+    html+='<div class="arch-card">'+
+      '<div class="arch-preview">'+preview+'<span class="ext-pill">'+ext+'</span></div>'+
+      '<div class="arch-info">'+
+        '<div class="arch-name" title="'+a.nombre+'">'+a.nombre+'</div>'+
+        '<div class="arch-meta">'+
+          '<span class="badge '+ecls+'" style="padding:2px 6px;font-size:9px">'+it.reg.empleado.split(' ')[0]+'</span>'+
+          '<span>'+fmtF(it.reg.fecha)+'</span>'+
+        '</div>'+
+        '<div class="arch-actions">'+
+          (tipo==='img'?'<button class="arch-btn" onclick="lbAbrir('+thisLbI+')">🔍 Ver</button>':'')+
+          '<button class="arch-btn" onclick="descargar('+it.ridx+','+it.aidx+')">⬇ Descargar</button>'+
+          '<button class="arch-btn del" onclick="eliminarArch('+it.ridx+','+it.aidx+')">✕</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+function verArchivosReg(ridx) {
+  nav('archivos');
+  // filtrar por empleado del registro
+  document.getElementById('af-emp').value = DATA[ridx].empleado;
+  document.getElementById('af-tipo').value = '';
+  renderArchivos();
+}
+
+function descargar(ridx, aidx) {
+  var a=DATA[ridx].archivos[aidx];
+  var link=document.createElement('a');
+  link.href=a.dataUrl;
+  link.download=a.nombre;
+  link.click();
+}
+
+function eliminarArch(ridx, aidx) {
+  DATA[ridx].archivos.splice(aidx,1);
+  updateArchBadge();
+  renderArchivos();
+  toast('Archivo eliminado','r');
+}
+
+// ═══════════════════════════════════════════
+// LIGHTBOX
+// ═══════════════════════════════════════════
+function lbAbrir(idx) {
+  LB_IDX=idx;
+  lbMostrar();
+  document.getElementById('lb').classList.add('open');
+}
+function lbMostrar() {
+  if (LB_LIST.length===0) return;
+  document.getElementById('lb-img').src=LB_LIST[LB_IDX].src;
+  document.getElementById('lb-name').textContent=LB_LIST[LB_IDX].nombre+' ('+(LB_IDX+1)+' / '+LB_LIST.length+')';
+}
+function lbCerrar() { document.getElementById('lb').classList.remove('open'); }
+function lbClickOutside(e) { if(e.target===document.getElementById('lb')) lbCerrar(); }
+function lbPrev() { LB_IDX=(LB_IDX-1+LB_LIST.length)%LB_LIST.length; lbMostrar(); }
+function lbNext() { LB_IDX=(LB_IDX+1)%LB_LIST.length; lbMostrar(); }
+document.addEventListener('keydown',function(e){
+  var lb=document.getElementById('lb');
+  if (!lb.classList.contains('open')) return;
+  if (e.key==='Escape') lbCerrar();
+  if (e.key==='ArrowLeft') lbPrev();
+  if (e.key==='ArrowRight') lbNext();
+});
+
+// ═══════════════════════════════════════════
+// EMPRESAS
+// ═══════════════════════════════════════════
+function renderEmpresas() {
+  var strip=document.getElementById('empresa-strip');
+  var compWrap=document.getElementById('empresa-comp-wrap');
+  if (DATA.length===0) {
+    strip.innerHTML='<div style="grid-column:1/-1">'+emptyState('Primer Registro')+'</div>';
+    compWrap.innerHTML=''; return;
+  }
+  var maxCatV=0;
+  for (var ci=0;ci<CATS.length;ci++) { var v=sumKey(DATA,CATS[ci].k); if(v>maxCatV) maxCatV=v; }
+  if (!maxCatV) maxCatV=1;
+  var stripHtml='', enames=['Alquipop','Compradamus'];
+  for (var ei=0;ei<enames.length;ei++) {
+    var ename=enames[ei], ed=EMPRESAS[ename], erows=byEmpresa(ename), ecol=ed.color;
+    var total=sumKey(erows,'total_dia'), regs=erows.length;
+    var sinC=erows.filter(function(r){return r.comprobante==='No';}).length;
+    var prom=regs>0?Math.round(total/regs*100)/100:0;
+    var catBars='';
+    for (var ci=0;ci<CATS.length;ci++) {
+      var ct=sumKey(erows,CATS[ci].k), pct=Math.min(ct/maxCatV*100,100);
+      catBars+='<div class="eca-row"><div class="eca-label">'+CATS[ci].n+'</div>'+
+        '<div class="eca-track"><div class="eca-fill" style="width:'+pct+'%;background:'+ecol+'">'+
+        (ct>0?'<span class="eca-val">'+fmt(ct)+'</span>':'')+
+        '</div></div></div>';
+    }
+    stripHtml+='<div class="empresa-card" style="--ec:'+ecol+'">'+
+      '<div class="empresa-badge"><div class="dot-e"></div>'+ename+'</div>'+
+      '<div class="empresa-name">'+ename+'</div>'+
+      '<div class="empresa-emps">'+ed.emps.map(function(e){return e.split(' ')[0];}).join(', ')+'</div>'+
+      '<div class="empresa-kpis">'+
+        '<div class="ek"><div class="ek-label">Registros</div><div class="ek-val">'+regs+'</div></div>'+
+        '<div class="ek"><div class="ek-label">Prom/día</div><div class="ek-val" style="font-size:13px">'+fmt(prom)+'</div></div>'+
+        '<div class="ek"><div class="ek-label">Sin Comp.</div><div class="ek-val" style="color:'+(sinC>0?'var(--yellow)':'var(--green)')+'">'+sinC+'</div></div>'+
+      '</div>'+
+      '<div class="empresa-cats">'+catBars+'</div>'+
+      '<div class="empresa-total"><span class="empresa-total-label">Total acumulado</span><span class="empresa-total-val">'+fmt(total)+'</span></div>'+
+    '</div>';
+  }
+  strip.innerHTML=stripHtml;
+  var totAlq=sumKey(byEmpresa('Alquipop'),'total_dia'), totCmp=sumKey(byEmpresa('Compradamus'),'total_dia');
+  var maxC=Math.max(totAlq,totCmp)||1;
+  var cHtml='<div class="chart-title">Comparativa Total entre Empresas</div>'+
+    '<div class="chart-sub" style="margin-bottom:20px">Gasto acumulado en todas las categorías</div>'+
+    '<div class="bar-chart">'+
+    '<div class="bar-row"><div class="bar-label">Alquipop</div><div class="bar-track" style="height:28px">'+
+      '<div class="bar-fill" style="width:'+(totAlq/maxC*100)+'%;background:'+EMPRESAS['Alquipop'].color+'">'+
+      (totAlq>0?'<span class="bar-val">'+fmt(totAlq)+'</span>':'')+
+    '</div></div></div>'+
+    '<div class="bar-row"><div class="bar-label">Compradamus</div><div class="bar-track" style="height:28px">'+
+      '<div class="bar-fill" style="width:'+(totCmp/maxC*100)+'%;background:'+EMPRESAS['Compradamus'].color+'">'+
+      (totCmp>0?'<span class="bar-val">'+fmt(totCmp)+'</span>':'')+
+    '</div></div></div></div>';
+  cHtml+='<div style="margin-top:24px;overflow:hidden;border-radius:8px;border:1px solid var(--border)"><table><thead><tr>'+
+    '<th>Categoría</th><th style="color:#4F8EF7">Alquipop</th><th style="color:#7C5CFC">Compradamus</th><th>Diferencia</th><th>Mayor gasto</th>'+
+    '</tr></thead><tbody>';
+  for (var ci=0;ci<CATS.length;ci++) {
+    var cat=CATS[ci], vA=sumKey(byEmpresa('Alquipop'),cat.k), vC=sumKey(byEmpresa('Compradamus'),cat.k);
+    var diff=vA-vC, winner=vA>vC?'Alquipop':(vC>vA?'Compradamus':'—'), wcls=winner==='Alquipop'?'alq':(winner==='Compradamus'?'cmp':'');
+    cHtml+='<tr>'+
+      '<td style="font-weight:600;color:'+cat.c+'">'+cat.n+'</td>'+
+      '<td class="tn" style="color:#4F8EF7">'+fmt(vA)+'</td>'+
+      '<td class="tn" style="color:#7C5CFC">'+fmt(vC)+'</td>'+
+      '<td class="tn" style="color:'+(diff>0?'#4F8EF7':(diff<0?'#7C5CFC':'var(--muted)'))+'">'+
+        (diff>0?'+':'')+fmt(diff)+'</td>'+
+      '<td>'+(wcls?'<span class="badge '+wcls+'">'+winner+'</span>':'<span style="color:var(--muted);font-size:11px">Empate</span>')+'</td>'+
+    '</tr>';
+  }
+  var dT=totAlq-totCmp, wT=totAlq>totCmp?'Alquipop':(totCmp>totAlq?'Compradamus':'—'), wtCls=wT==='Alquipop'?'alq':(wT==='Compradamus'?'cmp':'');
+  cHtml+='<tr style="background:var(--surface)"><td style="font-weight:700">TOTAL</td>'+
+    '<td class="tn" style="font-weight:700;color:#4F8EF7">'+fmt(totAlq)+'</td>'+
+    '<td class="tn" style="font-weight:700;color:#7C5CFC">'+fmt(totCmp)+'</td>'+
+    '<td class="tn" style="font-weight:700;color:'+(dT>0?'#4F8EF7':(dT<0?'#7C5CFC':'var(--muted)'))+'">'+
+      (dT>0?'+':'')+fmt(dT)+'</td>'+
+    '<td>'+(wtCls?'<span class="badge '+wtCls+'">'+wT+'</span>':'—')+'</td>'+
+  '</tr>';
+  cHtml+='</tbody></table></div>';
+  compWrap.innerHTML=cHtml;
+}
+
+// ═══════════════════════════════════════════
+// EMPLEADOS
+// ═══════════════════════════════════════════
+function renderEmps() {
+  var wrap=document.getElementById('emp-grid-wrap');
+  if (DATA.length===0) { wrap.innerHTML=emptyState('Primer Registro'); return; }
+  var tots=[]; var maxT=0;
+  for (var ei=0;ei<EMPS.length;ei++) { var t=sumKey(byEmp(EMPS[ei]),'total_dia'); tots.push(t); if(t>maxT) maxT=t; }
+  if (!maxT) maxT=1;
+  var html='<div class="emp-grid">';
+  for (var ei=0;ei<EMPS.length;ei++) {
+    var emp=EMPS[ei], av=AV[emp], erows=byEmp(emp), total=tots[ei], regs=erows.length;
+    var sinComp=erows.filter(function(r){return r.comprobante==='No';}).length;
+    var prom=regs>0?Math.round(total/regs*100)/100:0;
+    var pct=total/maxT;
+    var empresa=EMP_EMPRESA[emp], ecls=empresa==='Alquipop'?'alq':'cmp';
+    html+='<div class="emp-card">'+
+      '<div class="emp-head">'+
+        '<div class="emp-av" style="background:#'+av.c+'22;color:#'+av.c+'">'+av.i+'</div>'+
+        '<div><div class="emp-name">'+emp+'</div>'+
+          '<div class="emp-sub"><span class="badge '+ecls+'" style="padding:1px 6px;font-size:9px">'+empresa+'</span></div></div>'+
+      '</div>'+
+      '<div class="emp-stats">'+
+        '<div class="emp-stat"><div class="es-label">Total Gasto</div><div class="es-val" style="color:#'+av.c+'">'+fmt(total)+'</div></div>'+
+        '<div class="emp-stat"><div class="es-label">Registros</div><div class="es-val">'+regs+'</div></div>'+
+        '<div class="emp-stat"><div class="es-label">Promedio/día</div><div class="es-val" style="font-size:14px">'+fmt(prom)+'</div></div>'+
+        '<div class="emp-stat"><div class="es-label">Sin Comp.</div><div class="es-val" style="color:'+(sinComp>0?'var(--yellow)':'var(--green)')+'">'+sinComp+'</div></div>'+
+      '</div>'+
+      '<div class="prog-track"><div class="prog-fill" style="width:'+(pct*100)+'%;background:#'+av.c+'"></div></div>'+
+      '<div class="prog-lbl"><span>'+(pct*100).toFixed(0)+'% del máx.</span><span>'+regs+' día'+(regs!==1?'s':'')+'</span></div>'+
+    '</div>';
+  }
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════
+// CATEGORÍAS
+// ═══════════════════════════════════════════
+function renderCats() {
+  var wrap=document.getElementById('cat-wrap');
+  if (DATA.length===0) { wrap.innerHTML=emptyState('Primer Registro'); return; }
+  var grand=sumKey(DATA,'total_dia')||1;
+  var maxCat=0;
+  for (var ci=0;ci<CATS.length;ci++) { var v=sumKey(DATA,CATS[ci].k); if(v>maxCat) maxCat=v; }
+  if (!maxCat) maxCat=1;
+  var html='<div class="chart-card" style="margin-bottom:20px">'+
+    '<div class="chart-title">Gasto Total por Categoría</div>'+
+    '<div class="chart-sub">Distribución del gasto acumulado</div>'+
+    '<div class="bar-chart" style="gap:18px">';
+  for (var ci=0;ci<CATS.length;ci++) {
+    var cat=CATS[ci], total=sumKey(DATA,cat.k), pct=Math.min(total/maxCat*100,100), pctG=(total/grand*100).toFixed(1);
+    html+='<div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px">'+
+        '<span style="color:var(--muted)">'+cat.n+'</span>'+
+        '<span style="font-family:var(--mono);color:'+cat.c+'">'+fmt(total)+'<span style="color:var(--muted)"> ('+pctG+'%)</span></span>'+
+      '</div>'+
+      '<div class="bar-track" style="height:24px"><div class="bar-fill" style="width:'+pct+'%;background:'+cat.c+'">'+
+        (total>0?'<span class="bar-val">'+pctG+'%</span>':'')+
+      '</div></div></div>';
+  }
+  html+='</div></div>';
+  html+='<div class="tbl-wrap"><table><thead><tr><th>Categoría</th>'+
+    '<th style="color:#4F8EF7">Alquipop</th>'+
+    '<th style="color:'+AV['Romel Garcia Reyes'].c+'">Romel</th>'+
+    '<th style="color:'+AV['Miguel Angel Ramírez Nava'].c+'">Miguel</th>'+
+    '<th style="color:#7C5CFC">Subtot. Comp.</th>'+
+    '<th>Total</th><th>%</th></tr></thead><tbody>';
+  for (var ci=0;ci<CATS.length;ci++) {
+    var cat=CATS[ci];
+    var vA=sumKey(byEmp('Alexander Garcia Ramírez'),cat.k);
+    var vR=sumKey(byEmp('Romel Garcia Reyes'),cat.k);
+    var vM=sumKey(byEmp('Miguel Angel Ramírez Nava'),cat.k);
+    var vC=vR+vM, total=vA+vC, pctG=(total/grand*100).toFixed(1);
+    html+='<tr><td style="font-weight:600;color:'+cat.c+'">'+cat.n+'</td>'+
+      '<td class="tn" style="color:#4F8EF7">'+fmt(vA)+'</td>'+
+      '<td class="tn" style="color:'+AV['Romel Garcia Reyes'].c+'">'+fmt(vR)+'</td>'+
+      '<td class="tn" style="color:'+AV['Miguel Angel Ramírez Nava'].c+'">'+fmt(vM)+'</td>'+
+      '<td class="tn" style="color:#7C5CFC;font-weight:600">'+fmt(vC)+'</td>'+
+      '<td class="tn" style="font-weight:700">'+fmt(total)+'</td>'+
+      '<td class="tn" style="color:var(--muted)">'+pctG+'%</td></tr>';
+  }
+  var tA=sumKey(byEmp('Alexander Garcia Ramírez'),'total_dia');
+  var tR=sumKey(byEmp('Romel Garcia Reyes'),'total_dia');
+  var tM=sumKey(byEmp('Miguel Angel Ramírez Nava'),'total_dia');
+  html+='<tr style="background:var(--surface)"><td style="font-weight:700">TOTAL</td>'+
+    '<td class="tn" style="font-weight:700;color:#4F8EF7">'+fmt(tA)+'</td>'+
+    '<td class="tn" style="font-weight:700;color:'+AV['Romel Garcia Reyes'].c+'">'+fmt(tR)+'</td>'+
+    '<td class="tn" style="font-weight:700;color:'+AV['Miguel Angel Ramírez Nava'].c+'">'+fmt(tM)+'</td>'+
+    '<td class="tn" style="font-weight:700;color:#7C5CFC">'+fmt(tR+tM)+'</td>'+
+    '<td class="tn" style="font-weight:700">'+fmt(tA+tR+tM)+'</td>'+
+    '<td class="tn" style="color:var(--muted)">100%</td></tr>';
+  html+='</tbody></table></div>';
+  wrap.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════
+// RENDER TODO
+// ═══════════════════════════════════════════
+function renderTodo() {
+  updateArchBadge();
+  renderKPIs(); renderCharts(); renderReciente();
+}
+
+// ═══════════════════════════════════════════
+// DRAG & DROP + FILE HANDLING (modal)
+// ═══════════════════════════════════════════
+function dzOver(e) {
+  e.preventDefault();
+  document.getElementById('m-dropzone').classList.add('over');
+}
+function dzLeave(e) {
+  document.getElementById('m-dropzone').classList.remove('over');
+}
+function dzDrop(e) {
+  e.preventDefault();
+  document.getElementById('m-dropzone').classList.remove('over');
+  agregarArchivos(e.dataTransfer.files);
+}
+function agregarArchivos(files) {
+  for (var i=0;i<files.length;i++) {
+    (function(file){
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        ARCHIVOS_TEMP.push({nombre:file.name, dataUrl:ev.target.result, size:file.size, tipo:tipoArch(file.name)});
+        renderThumbs();
+        // Auto-marcar comprobante como Sí
+        document.getElementById('m-comp').value='Sí';
+      };
+      reader.readAsDataURL(file);
+    })(files[i]);
+  }
+}
+function renderThumbs() {
+  var wrap=document.getElementById('m-thumbs');
+  if (ARCHIVOS_TEMP.length===0) { wrap.innerHTML=''; return; }
+  var html='';
+  for (var i=0;i<ARCHIVOS_TEMP.length;i++) {
+    var a=ARCHIVOS_TEMP[i];
+    var inner='';
+    if (a.tipo==='img') {
+      inner='<img src="'+a.dataUrl+'" alt="'+a.nombre+'">';
+    } else {
+      inner='<div class="fth-body">'+
+        '<span style="font-size:22px">'+(a.tipo==='pdf'?'📄':'📎')+'</span>'+
+        '<span class="fth-ext">'+a.nombre.split('.').pop().toUpperCase()+'</span>'+
+        '<span class="fth-nm">'+a.nombre+'</span></div>';
+    }
+    html+='<div class="fth">'+inner+
+      '<button class="fth-x" onclick="quitarThumb('+i+')">✕</button></div>';
+  }
+  wrap.innerHTML=html;
+}
+function quitarThumb(i) {
+  ARCHIVOS_TEMP.splice(i,1);
+  renderThumbs();
+  if (ARCHIVOS_TEMP.length===0) document.getElementById('m-comp').value='No';
+}
+
+// ═══════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════
+function abrirModal() {
+  document.getElementById('m-fecha').value       = hoy();
+  document.getElementById('m-comb').value        = '';
+  document.getElementById('m-peaje').value       = '';
+  document.getElementById('m-estac').value       = '';
+  document.getElementById('m-otros').value       = '';
+  document.getElementById('m-emp').selectedIndex = 0;
+  document.getElementById('m-comp').selectedIndex= 0;
+  document.getElementById('m-total').textContent = '$0.00';
+  document.getElementById('m-total').style.color = 'var(--text)';
+  ARCHIVOS_TEMP=[];
+  renderThumbs();
+  document.getElementById('m-files').value='';
+  document.getElementById('overlay').classList.add('open');
+}
+function cerrarModal() { document.getElementById('overlay').classList.remove('open'); }
+function clickOverlay(e) { if(e.target===document.getElementById('overlay')) cerrarModal(); }
+function calcTotal() {
+  var c=parseFloat(document.getElementById('m-comb').value)||0;
+  var p=parseFloat(document.getElementById('m-peaje').value)||0;
+  var e=parseFloat(document.getElementById('m-estac').value)||0;
+  var o=parseFloat(document.getElementById('m-otros').value)||0;
+  var t=Math.round((c+p+e+o)*100)/100;
+  document.getElementById('m-total').textContent=fmt(t);
+  document.getElementById('m-total').style.color='var(--text)';
+}
+function guardar() {
+  var emp  =document.getElementById('m-emp').value;
+  var fecha=document.getElementById('m-fecha').value;
+  var comp =document.getElementById('m-comp').value;
+  var c=parseFloat(document.getElementById('m-comb').value)||0;
+  var p=parseFloat(document.getElementById('m-peaje').value)||0;
+  var e=parseFloat(document.getElementById('m-estac').value)||0;
+  var o=parseFloat(document.getElementById('m-otros').value)||0;
+  if (!fecha) { toast('Selecciona una fecha','r'); return; }
+  // Si subieron archivos, forzar comprobante = Sí
+  if (ARCHIVOS_TEMP.length>0) comp='Sí';
+  DATA.push({
+    empleado:emp, empresa:EMP_EMPRESA[emp], fecha:fecha,
+    combustible:c, peaje:p, estacionamiento:e, otros:o,
+    total_dia:Math.round((c+p+e+o)*100)/100,
+    comprobante:comp,
+    archivos:ARCHIVOS_TEMP.slice()
+  });
+  ARCHIVOS_TEMP=[];
+  cerrarModal();
+  renderTodo();
+  renderPg(pgActual);
+  var msg='Registro guardado';
+  if (DATA[DATA.length-1].archivos.length>0) msg+=' con '+DATA[DATA.length-1].archivos.length+' archivo(s)';
+  toast(msg,'g');
+}
+
+// ═══════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════
+function toast(msg,tipo) {
+  var el=document.getElementById('toast');
+  el.className=tipo||'g';
+  el.innerHTML=(tipo==='r'?'❌':'✅')+' '+msg;
+  el.classList.add('show');
+  setTimeout(function(){el.classList.remove('show');},3000);
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+renderTodo();
+</script>
+</body>
+</html>
